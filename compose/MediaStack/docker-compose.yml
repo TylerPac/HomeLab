@@ -1,0 +1,264 @@
+name: media
+
+services:
+  ############################
+  # GLUETUN — NORDVPN
+  ############################
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    restart: unless-stopped
+
+    cap_add:
+      - NET_ADMIN
+
+    devices:
+      - /dev/net/tun:/dev/net/tun
+
+    environment:
+      TZ: America/New_York
+
+      VPN_SERVICE_PROVIDER: nordvpn
+      VPN_TYPE: openvpn
+      OPENVPN_PROTOCOL: udp
+
+      OPENVPN_USER: ${NORD_USER}
+      OPENVPN_PASSWORD: ${NORD_PASS}
+
+      SERVER_COUNTRIES: United States
+
+      # Allow qBittorrent to communicate with your LAN.
+      FIREWALL_OUTBOUND_SUBNETS: 192.168.1.0/24
+
+      # Allow access to the qBittorrent Web UI.
+      FIREWALL_INPUT_PORTS: "8080"
+
+    volumes:
+      - /opt/HomeLab/configs/MediaStack/gluetun:/gluetun
+
+    ports:
+      - "8080:8080"
+
+    networks:
+      - media_net
+
+
+  ############################
+  # QBITTORRENT — THROUGH VPN
+  ############################
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    restart: unless-stopped
+
+    network_mode: "service:gluetun"
+
+    depends_on:
+      gluetun:
+        condition: service_healthy
+
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/New_York
+
+      WEBUI_PORT: "8080"
+      TORRENTING_PORT: "6881"
+
+    volumes:
+      - /opt/HomeLab/configs/MediaStack/qbittorrent/config:/config
+      - /mnt/HDDStorage/DockerVolumes/MediaStack/qbittorrent/downloads:/data/torrents
+
+
+  ############################
+  # JACKETT
+  ############################
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: jackett
+    restart: unless-stopped
+
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/New_York
+
+    volumes:
+      - /opt/HomeLab/configs/MediaStack/jackett/config:/config
+      - /mnt/HDDStorage/DockerVolumes/MediaStack:/data
+
+    ports:
+      - "19117:9117"
+
+    networks:
+      - media_net
+
+
+  ############################
+  # RADARR
+  ############################
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    restart: unless-stopped
+
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/New_York
+
+    volumes:
+      - /opt/HomeLab/configs/MediaStack/radarr/config:/config
+      - /mnt/HDDStorage/DockerVolumes/MediaStack/qbittorrent/downloads:/data/torrents
+      - /mnt/HDDStorage/DockerVolumes/MediaStack/radarr/movies:/data/radarr/movies
+
+    ports:
+      - "17878:7878"
+
+    networks:
+      - media_net
+
+
+  ############################
+  # SONARR
+  ############################
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    restart: unless-stopped
+
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/New_York
+
+    volumes:
+      - /opt/HomeLab/configs/MediaStack/sonarr/config:/config
+      - /mnt/HDDStorage/DockerVolumes/MediaStack/qbittorrent/downloads:/data/torrents
+      - /mnt/HDDStorage/DockerVolumes/MediaStack/sonarr/anime:/data/sonarr/anime
+      - /mnt/HDDStorage/DockerVolumes/MediaStack/sonarr/tvseries:/data/sonarr/tvseries
+
+    ports:
+      - "18989:8989"
+
+    networks:
+      - media_net
+
+
+  ############################
+  # READARR COMMUNITY FORK
+  ############################
+  readarr:
+    image: ghcr.io/faustvii/readarr:latest
+    container_name: readarr
+    restart: unless-stopped
+
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/New_York
+
+    volumes:
+      - /opt/HomeLab/configs/MediaStack/readarr/config:/config
+      - /mnt/HDDStorage/DockerVolumes/MediaStack:/data
+
+    ports:
+      - "18787:8787"
+
+    networks:
+      - media_net
+
+
+  ############################
+  # JELLYFIN — GTX 1070 TI
+  ############################
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/New_York
+
+      NVIDIA_VISIBLE_DEVICES: GPU-d5949f53-2d2a-cd89-a06c-591b74289921
+      NVIDIA_DRIVER_CAPABILITIES: compute,video,utility
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids:
+                - "GPU-d5949f53-2d2a-cd89-a06c-591b74289921"
+              capabilities:
+                - gpu
+
+    volumes:
+      - /opt/HomeLab/configs/MediaStack/jellyFin/config:/config
+      - /opt/HomeLab/configs/MediaStack/jellyFin/transcodes:/transcodes
+      - /mnt/HDDStorage/DockerVolumes/MediaStack:/data:ro
+
+    ports:
+      - "8097:8096"
+      - "8920:8920"
+      - "7359:7359/udp"
+
+    networks:
+      - media_net
+
+
+  ############################
+  # SEERR
+  ############################
+  seerr:
+    image: ghcr.io/seerr-team/seerr:latest
+    container_name: seerr
+    restart: unless-stopped
+    init: true
+
+    environment:
+      LOG_LEVEL: info
+      TZ: America/New_York
+      PORT: "5055"
+
+    volumes:
+      - /opt/HomeLab/configs/MediaStack/seerr/config:/app/config
+
+    ports:
+      - "15055:5055"
+
+    networks:
+      - media_net
+
+
+  ############################
+  # FLARESOLVERR
+  ############################
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    restart: unless-stopped
+
+    environment:
+      LOG_LEVEL: info
+      LOG_FILE: none
+      LOG_HTML: "false"
+      CAPTCHA_SOLVER: none
+      TZ: America/New_York
+
+    ports:
+      - "8191:8191"
+
+    networks:
+      - media_net
+
+
+############################
+# NETWORK
+############################
+networks:
+  media_net:
+    name: media_net
+    driver: bridge

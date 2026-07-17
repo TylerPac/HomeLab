@@ -1,0 +1,68 @@
+services:
+  # Frigate NVR
+  frigate:
+    image: ghcr.io/blakeblackshear/frigate:stable-tensorrt
+    container_name: frigate
+    privileged: true
+    restart: unless-stopped
+    shm_size: "1gb"
+    depends_on:
+      - mqtt
+    ports:
+      - "1984:1984"
+      - "5000:5000"
+      - "8971:8971"
+    volumes:
+      - /mnt/HDDStorage/DockerVolumes/SecurityStack/frigate:/media/frigate
+      - /opt/HomeLab/configs/SecurityStack/frigate:/config
+
+
+
+      - type: tmpfs
+        target: /tmp/cache
+        tmpfs:
+          size: 1073741824
+    environment:
+      FRIGATE_CAM1_HOST: ${REOLINK_CAM1_HOST}
+      FRIGATE_CAM1_USERNAME: ${REOLINK_CAM1_USERNAME}
+      FRIGATE_CAM1_PASSWORD: ${REOLINK_CAM1_PASSWORD}
+      FRIGATE_CAM2_HOST: ${REOLINK_CAM2_HOST}
+      FRIGATE_CAM2_USERNAME: ${REOLINK_CAM2_USERNAME}
+      FRIGATE_CAM2_PASSWORD: ${REOLINK_CAM2_PASSWORD}
+      FRIGATE_CAM3_HOST: ${CLOUDCAM_HOST}
+      FRIGATE_CAM3_USERNAME: ${CLOUDCAM_USERNAME}
+      FRIGATE_CAM3_PASSWORD: ${CLOUDCAM_PASSWORD}
+      YOLO_MODELS: yolov7-320
+      USE_FP16: "false"
+      NVIDIA_VISIBLE_DEVICES: "GPU-d5949f53-2d2a-cd89-a06c-591b74289921"
+      NVIDIA_DRIVER_CAPABILITIES: compute,video,utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids:
+                - "GPU-d5949f53-2d2a-cd89-a06c-591b74289921"
+              capabilities:
+                - gpu
+
+  # MQTT bus for Frigate events
+  mqtt:
+    image: eclipse-mosquitto:latest
+    container_name: mqtt
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - /opt/HomeLab/configs/SecurityStack/mqtt/config:/mosquitto/config
+      - /mnt/HDDStorage/DockerVolumes/SecurityStack/mqtt/data:/mosquitto/data
+      - /mnt/HDDStorage/DockerVolumes/SecurityStack/mqtt/log:/mosquitto/log
+
+  # Home Assistant
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /opt/HomeLab/configs/SecurityStack/homeassistant:/config

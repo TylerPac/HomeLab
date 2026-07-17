@@ -1,0 +1,69 @@
+services:
+
+  immich-server:
+    container_name: immich-server
+    image: ghcr.io/immich-app/immich-server:release
+
+    restart: unless-stopped
+
+    ports:
+      - "2283:2283"
+
+    environment:
+      DB_HOSTNAME: immich-postgres
+      DB_USERNAME: postgres
+      DB_PASSWORD: ${IMMICH_DB_PASSWORD}
+      DB_DATABASE_NAME: immich
+
+      REDIS_HOSTNAME: immich-redis
+
+    volumes:
+      - /mnt/HDDStorage/DockerVolumes/PhotoStack/Immich:/usr/src/app/upload
+
+    depends_on:
+      - immich-postgres
+      - immich-redis
+
+  immich-machine-learning:
+    container_name: immich-machine-learning
+    image: ghcr.io/immich-app/immich-machine-learning:release-cuda
+    restart: unless-stopped
+
+    volumes:
+      - /opt/HomeLab/configs/PhotoStack/immich-machine-learning:/cache
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids:
+                - "GPU-d5949f53-2d2a-cd89-a06c-591b74289921"
+              capabilities:
+                - gpu
+
+  immich-postgres:
+    container_name: immich-postgres
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0
+    restart: unless-stopped
+    shm_size: 128mb
+
+    environment:
+      POSTGRES_PASSWORD: ${IMMICH_DB_PASSWORD}
+      POSTGRES_USER: postgres
+      POSTGRES_DB: immich
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+
+    volumes:
+      - /opt/HomeLab/configs/PhotoStack/immich-postgres:/var/lib/postgresql/data
+
+  immich-redis:
+    container_name: immich-redis
+    image: redis:7
+
+    restart: unless-stopped
+
+    volumes:
+      - /opt/HomeLab/configs/PhotoStack/immich-redis:/data
+
+  
