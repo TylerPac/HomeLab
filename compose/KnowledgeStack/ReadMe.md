@@ -4,7 +4,7 @@ Knowledge and file-sync stack for notes, documents, and object storage.
 
 ## Why This Exists
 
-This stack keeps my knowledge workflow local-first and self-hosted, while still giving me sync and flexible storage options.
+This stack keeps my knowledge workflow local-first and self-hosted, while still giving me sync and flexible storage options. My main use case is syncing Obsidian and GoodNotes across all my devices while keeping my data secure and local.
 
 ## Services
 
