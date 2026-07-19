@@ -7,30 +7,76 @@ services:
     restart: unless-stopped
 
     environment:
-      AUTH_TYPE: Basic
-      USERNAME: ${WEBDAV_USER}
-      PASSWORD: ${WEBDAV_PASSWORD}
+      WEBDAV_USER: ${WEBDAV_USER}
+      WEBDAV_PASSWORD: ${WEBDAV_PASSWORD}
 
     ports:
       - "8085:80"
 
     volumes:
-      - /mnt/HDDStorage/DockerVolumes/KnowledgeStack/GoodNotes:/var/lib/dav
+      - /mnt/HDDStorage/DockerVolumes/KnowledgeStack/GoodNotes/webdav-inbox:/var/lib/dav
+      - /opt/HomeLab/configs/KnowledgeStack/webdav/config.yml:/config.yml:ro
+    
+    networks:
+      - proxy
 
-  minio:
-    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
-    container_name: minio
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
 
+      - "traefik.http.routers.goodnotes.rule=Host(`goodnotes.tylerpac.dev`)"
+      - "traefik.http.routers.goodnotes.entrypoints=web"
+
+      - "traefik.http.routers.goodnotes.service=goodnotes"
+      - "traefik.http.services.goodnotes.loadbalancer.server.port=80"
+
+  couchdb:
+    image: couchdb:3.4
+    container_name: couchdb
     restart: unless-stopped
 
     environment:
-      MINIO_ROOT_USER: ${MINIO_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
-
-    ports:
-      - "9000:9000"
-      - "9090:9090"
+      COUCHDB_USER: ${COUCHDB_ADMIN_USER}
+      COUCHDB_PASSWORD: ${COUCHDB_ADMIN_PASSWORD}
+      COUCHDB_SECRET: ${COUCHDB_SECRET}
 
     volumes:
-      - /mnt/HDDStorage/DockerVolumes/KnowledgeStack/MinIO:/data
-    command: server --console-address ":9090" /data
+      - /mnt/HDDStorage/DockerVolumes/KnowledgeStack/CouchDB/data:/opt/couchdb/data
+      - /opt/HomeLab/configs/KnowledgeStack/couchdb/local.ini:/opt/couchdb/etc/local.d/local.ini
+
+    networks:
+      - proxy
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.couchdb.rule=Host(`couchdb.tylerpac.dev`)"
+      - "traefik.http.routers.couchdb.entrypoints=web"
+      - "traefik.http.routers.couchdb.service=couchdb"
+      - "traefik.http.services.couchdb.loadbalancer.server.port=5984"
+
+  livesync-bridge:
+    image: ghcr.io/vrtmrz/livesync-cli:latest
+    container_name: livesync-bridge
+    restart: unless-stopped
+
+    depends_on:
+      - couchdb
+
+    volumes:
+      - /mnt/HDDStorage/DockerVolumes/KnowledgeStack/LiveSyncBridge/state:/data
+      - /mnt/HDDStorage/DockerVolumes/KnowledgeStack/ObsidianVault/SirPacsterVault:/vault
+
+    command:
+      - --settings
+      - /data/settings.json
+      - --vault
+      - /vault
+      - daemon
+
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true

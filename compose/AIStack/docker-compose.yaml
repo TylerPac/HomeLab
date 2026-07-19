@@ -38,6 +38,51 @@ services:
                 - "1"
               capabilities: [gpu]
 
+  camofox-browser:
+    image: ghcr.io/redf0x1/camofox-browser:latest
+    container_name: camofox-browser
+    ports:
+      - "9377:9377"  # Camofox REST API
+      - "6080:6080"  # noVNC Visual Debugging Web Interface
+    environment:
+      - CAMOFOX_HOST=0.0.0.0
+      - CAMOFOX_PORT=9377
+      
+      # Authentication & Security
+      - CAMOFOX_AUTH_MODE=auto
+      - CAMOFOX_API_KEY=${CAMOFOX_API_KEY}
+      - CAMOFOX_ADMIN_KEY=${CAMOFOX_ADMIN_KEY}
+      
+      # Optional: Residential or Data Center Proxy Configuration
+      # - PROXY_HOST=://example.com
+      # - PROXY_PORT=8080
+      # - PROXY_USERNAME=user
+      # - PROXY_PASSWORD=password
+    volumes:
+      # Persists cookies, localStorage, and browser profiles across restarts
+      - camofox_data:/home/node/.camofox
+    restart: unless-stopped
+
+
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+
+    ports:
+      - "8084:8080"
+
+    volumes:
+      - open-webui_data:/app/backend/data
+
+    environment:
+      - OPENAI_API_BASE_URL=http://llama-cpp:8080/v1
+      - OPENAI_API_KEY=sk-placeholder
+
+    depends_on:
+      - llama-cpp
+
   searxng:
     image: searxng/searxng:latest
     container_name: searxng
@@ -51,5 +96,9 @@ services:
 
     volumes:
       - /opt/HomeLab/configs/AIStack/searxng:/etc/searxng
+
+volumes:
+  camofox_data:
+  open-webui_data:
 
   

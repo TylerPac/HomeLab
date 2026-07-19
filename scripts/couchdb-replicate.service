@@ -1,0 +1,6 @@
+[Unit]
+Description=Replicate CouchDB obsidianvault <-> obsidianknowledge
+
+[Service]
+Type=oneshot
+ExecStart=/opt/HomeLab/scripts/couchdb-replicate.sh

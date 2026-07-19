@@ -1,0 +1,6 @@
+[Unit]
+Description=GoodNotes one-way ingest into vault attachments
+
+[Service]
+Type=oneshot
+ExecStart=/opt/HomeLab/scripts/goodnotes-ingest.sh
